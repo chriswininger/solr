@@ -1,0 +1,122 @@
+useLogger(new CustomEventLogger())
+
+class CustomEventLogger extends BuildAdapter implements TaskExecutionListener, ProjectEvaluationListener {
+
+  boolean includeStable = false;
+
+  private void jsonList(Collection c) {
+    print "[";
+    boolean prev = false;
+    c.each {
+      if (prev) print "," ;
+      prev = true;
+      print (" \"${it}\"")
+    };
+    print "]";
+  }
+
+  private void jsonList2(Collection c, String extra) {
+    print "[";
+    print extra;
+    c.each {
+      print "," ;
+      print (" \"${it}\"")
+    };
+    print "]";
+  }
+
+  public void printCompDbEntry(JavaCompile compileTask, Set<File> files) {
+    if (null != compileTask.getDestinationDir()) {
+      Set<File> emptyset = Collections.<File>emptySet();
+      println "MUSE_COMPDB_JSON";
+      println "{";
+
+      print "\"classpath\":";
+      Set<File> classpathFiles = Collections.<File>emptySet();
+      if (null != compileTask.getClasspath()) {
+        classpathFiles = compileTask.getClasspath().getFiles();
+        if (null == classpathFiles) {
+          classpathFiles = emptyset;
+        }
+      }
+      def android = false
+      if (android) {
+        String platformJar = "\"/opt/android-sdk-linux/platforms/android-" + androidVersion + "/android.jar\""
+        jsonList2(classpathFiles, platformJar);
+      } else {
+        jsonList(classpathFiles);
+      }
+      println ",";
+
+      print "\"arguments\":";
+      if (null != compileTask.getOptions()) {
+        List<String> args = compileTask.getOptions().getCompilerArgs();
+        if( null != args ) {
+          jsonList(args);
+        } else {
+          jsonList(emptyset);
+        }
+      } else {
+        jsonList(emptyset);
+      }
+      println ",";
+
+      print "\"files\":";
+      jsonList(files);
+      println ",";
+
+      print "\"output_dir\" : \"";
+      print (compileTask.getDestinationDir().toString());
+      println "\"";
+      println "}";
+      println "END_MUSE_COMPDB_JSON";
+    }
+  }
+
+  void beforeEvaluate(Project project) {
+    List<String> version = project.getGradle().getGradleVersion().tokenize('.');
+    if (version.size() != 0 && Integer.parseInt(version.get(0)) >= 6) { // check if the major version is at least 6
+      includeStable = true;
+    }
+  }
+
+  void afterEvaluate(Project project, ProjectState state) {
+  }
+
+  public void beforeExecute(Task task) {
+    try {
+      if (task == null) return;
+      if (task instanceof JavaCompile) {
+        // NOTE: This logic is complicated by the fact that the methods provided by a JavaCompile object
+        //       vary depending on the version gradle being used to build the source. With versions of gradle
+        //       prior to 6.0, "getStableSources" and "getSources" do not exist. Therefore any calls to these
+        //       methods must be guarded by a check on the version of gradle being used.
+        JavaCompile compileTask = (JavaCompile) task;
+        if (compileTask.getSource() != null && !compileTask.getSource().getFiles().isEmpty()) {
+          printCompDbEntry(compileTask, compileTask.getSource().getFiles());
+        } else if (includeStable && compileTask.getStableSources() != null && !compileTask.getStableSources().getFiles().isEmpty()) {
+          printCompDbEntry(compileTask, compileTask.getStableSources().getFiles());
+        } else if (compileTask.getSources() != null && !compileTask.getSources().getFiles().isEmpty()) {
+          printCompDbEntry(compileTask, compileTask.getSources().getFiles());
+        }
+      } else if (task instanceof AbstractCompile) {
+        println "MUSE_EXTRA_JSON";
+        println "{";
+        print "\"classpath\":";
+        jsonList(((AbstractCompile)task).getClasspath().getFiles());
+        println ",";
+        print "\"output_dir\" : \"";
+        print (((AbstractCompile)task).getDestinationDir().toString());
+        println "\"";
+        println "}";
+        println "END_MUSE_EXTRA_JSON";
+      }
+    } catch (Exception e) {
+      print e.printStackTrace();
+    }
+  }
+
+  public void afterExecute(Task task, TaskState state) {
+  }
+}
+

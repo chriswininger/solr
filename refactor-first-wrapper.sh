@@ -22,18 +22,8 @@ function tellVersion() {
 }
 
 function run() {
-  RESULTS='./target/site/refactor-first-data.json'
-  mvn org.hjug.refactorfirst.plugin:refactor-first-maven-plugin:0.3.1-SNAPSHOT:jsonreport >> ./refactor_first_logs
-
-  if [[ -f "$RESULTS" ]]
-  then
-    echo "{ \"refactor-first\": $(cat $RESULTS) }"
-    return 0
-  else
-    echo "{ \"refactor-first\": { \"errors\": [\"failed to produce results for refactor-first\"] } }"
-    # echo "{ \"refactor-first\": { \"errors\": [\"failed to produce results for refactor-first\"], \"logs\": \"$(cat ./refactor_first_logs)\" } }"
-    return 1
-  fi
+  ./gradlew -I muse-compdb.gradle clean assemble -x test  
+  echo "{}"
 }
 
 if [[ "$cmd" = "name" ]] ; then
