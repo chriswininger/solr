@@ -22,8 +22,12 @@ function tellVersion() {
 }
 
 function run() {
-  ./gradlew -I muse-compdb.gradle clean assemble -x test  
-  echo "{}"
+  ./gradlew -i -I muse-compdb.gradle clean assemble -x test >> gradle_dump.txt 2>&1
+  logs="$(cat ./gradle_dump.txt)"
+  logs_trunc="$(echo $logs | tail -n300)"
+  logs_escaped="$(echo $logs_trunc | jq -aRs .)"
+  
+  echo "{ \"refactor-first\": { \"errors\": [$logs_escaped] } }"
 }
 
 if [[ "$cmd" = "name" ]] ; then
