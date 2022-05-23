@@ -22,12 +22,13 @@ function tellVersion() {
 }
 
 function run() {
-  ./gradlew -i -I muse-compdb.gradle clean assemble -x test >> gradle_dump.txt 2>&1
+  ./gradlew --no-daemon -i -I muse-compdb.gradle -x buildLocalAntoraSite clean assemble -x test >> gradle_dump.txt 2>&1
+  exit_code="$(echo $?)"
   logs="$(cat ./gradle_dump.txt)"
   logs_trunc="$(echo $logs | tail -n300)"
   logs_escaped="$(echo $logs_trunc | jq -aRs .)"
   
-  echo "{ \"refactor-first\": { \"errors\": [$logs_escaped] } }"
+  echo "{ \"refactor-first\": { \"errors\": [\"$exit_code\",$logs_escaped] } }"
 }
 
 if [[ "$cmd" = "name" ]] ; then
